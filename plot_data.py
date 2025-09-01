@@ -5,14 +5,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from scipy.interpolate import griddata
-from pykrige.ok import OrdinaryKriging
-
 parser = argparse.ArgumentParser('Seismic project', add_help=False)
 parser.add_argument('--data_folder', default='./data', type=str, help='Folder path to dataset')
 parser.add_argument('--magnetometry_folder', default='Datos_Magnetometria_Anomalia_Magnetica_de_Campo_Total', type=str, help='Folder path to magnetometry data')
 parser.add_argument('--gravimetry_folder', default='Datos_Gravimetria_Anomalia_Residual', type=str, help='Folder path to gravimetry data')
-args = parser.parse_args()
+#args = parser.parse_args()
+
+args = parser.parse_args(args=[])
 
 ## load data
 magnetometry_path = os.path.join(args.data_folder, args.magnetometry_folder, "Puntos_Grilla_Anomalia_Magnetica_de_Campo_Total_SGC.xlsx")

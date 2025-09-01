@@ -1,0 +1,6 @@
+La primera columna alberga la coordenada Este (X)
+La segunda columna alberga la coordenada Norte (Y)
+La tercera columna alberga la altura en m.s.n.m (Z)
+La cuarta columna alberga el valor de anomalía gravimétrica residual
+
+Sistema de coordenadas proyectado: MAGNA-SIRGAS Origen-Nacional

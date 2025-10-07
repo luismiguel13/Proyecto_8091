@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import numpy as np
 
 
 class WireActivation(nn.Module):
@@ -26,6 +27,27 @@ class SineActivation(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.sin(self.w0 * x)
 
+
+class GaussianFourierFeatures(torch.nn.Module):
+    def __init__(self, input_dim, num_features, sigma=10.0):
+        super().__init__()
+        self.num_features = num_features
+        self.sigma = sigma
+        
+        # Matriz de frecuencias aleatorias
+        self.register_buffer(
+            'freqs', 
+            torch.randn(num_features, input_dim) * sigma
+        )
+        
+    def forward(self, coords):
+        """
+        coords: coordenadas normalizadas [N, input_dim]
+        """
+        # Aplicar transformación Fourier
+        proj = 2 * np.pi * coords @ self.freqs.T
+        return torch.cat([torch.cos(proj), torch.sin(proj)], dim=-1)
+
 # ---- CMLP ----
 class CMLP(nn.Module):
     """
@@ -48,6 +70,7 @@ class CMLP(nn.Module):
         wire_omega: float = 1.0,
         wire_sigma: float = 1.0,
         sine_w0: float = 1.0,
+        input_transform: bool = True,
         final_activation: nn.Module | None = None,
     ):
         super().__init__()
@@ -66,7 +89,14 @@ class CMLP(nn.Module):
                 raise ValueError(f"Unsupported activation: {activation}")
 
         # Input layer
-        layers.append(nn.Linear(in_features, hidden_units))
+        if input_transform == True:
+            layers.append(GaussianFourierFeatures(
+                input_dim=2, num_features=128, sigma=10.0
+            ))
+            layers.append(nn.Linear(256, hidden_units))
+        else:
+            layers.append(nn.Linear(in_features, hidden_units))
+
         layers.append(make_act())
 
         # Hidden layers

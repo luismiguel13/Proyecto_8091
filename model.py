@@ -48,6 +48,82 @@ class GaussianFourierFeatures(torch.nn.Module):
         proj = 2 * np.pi * coords @ self.freqs.T
         return torch.cat([torch.cos(proj), torch.sin(proj)], dim=-1)
 
+
+class AnisotropicPositionalEncoding(nn.Module):
+    """
+    Anisotropic Positional Encoding para coordenadas.
+    
+    Args:
+        M: número de frecuencias para eje x (tiempo)
+        N: número de frecuencias para eje y (receptor)  
+        K: número de frecuencias para eje z (fuente)
+        sampling: 'linear' o 'exponential'
+    """
+    def __init__(self, M, N, sampling='linear'):
+        super().__init__()
+        self.M = M
+        self.N = N
+        self.sampling = sampling
+        
+        # Generar frecuencias para cada eje
+        self.freq_x = self._generate_frequencies(M)
+        self.freq_y = self._generate_frequencies(N)
+        
+    
+    def _generate_frequencies(self, U):
+        """Genera vector de frecuencias según tipo de muestreo"""
+        if self.sampling == 'linear':
+            # π_i = i*π
+            freqs = torch.arange(1, U + 1, dtype=torch.float32) * np.pi
+        elif self.sampling == 'exponential':
+            # π_i = 2^(i-1) * π
+            freqs = (2.0 ** torch.arange(0, U, dtype=torch.float32)) * np.pi
+        else:
+            raise ValueError("sampling debe ser 'linear' o 'exponential'")
+        return freqs
+    
+    def encode_coordinate(self, coord, frequencies):
+        """
+        Codifica una coordenada con funciones sinusoidales.
+        
+        Args:
+            coord: tensor de forma (batch_size, 1)
+            frequencies: tensor de frecuencias (U,)
+        Returns:
+            tensor de forma (batch_size, 2*U)
+        """
+        productos = coord * frequencies.unsqueeze(0)
+        
+        # Aplicar cos y sin
+        cos_encoding = torch.cos(productos)
+        sin_encoding = torch.sin(productos)
+        
+        # Concatenar: [cos(π_1*v), sin(π_1*v), ..., cos(π_U*v), sin(π_U*v)]
+        encoding = torch.cat([cos_encoding, sin_encoding], dim=1)
+        
+        return encoding
+    
+    def forward(self, coords):
+        """
+        Args:
+            coords: tensor de forma (batch_size, 3) con columnas [x, y, z]
+                   donde x=tiempo, y=receptor, z=fuente
+                   Las coordenadas deben estar normalizadas en [0, 1]
+        Returns:
+            tensor de forma (batch_size, 2*(M+N+K))
+        """
+        x = coords[:, 0:1]  
+        y = coords[:, 1:2]  
+        
+        # Codificar cada coordenada
+        encoding_x = self.encode_coordinate(x, self.freq_x)  # (batch_size, 2*M)
+        encoding_y = self.encode_coordinate(y, self.freq_y)  # (batch_size, 2*N)
+        
+        # Concatenar todas las codificaciones
+        full_encoding = torch.cat([encoding_x, encoding_y], dim=1)
+        
+        return full_encoding
+
 # ---- CMLP ----
 class CMLP(nn.Module):
     """
@@ -70,7 +146,7 @@ class CMLP(nn.Module):
         wire_omega: float = 1.0,
         wire_sigma: float = 1.0,
         sine_w0: float = 1.0,
-        input_transform: bool = True,
+        input_transform: str = "FF",
         final_activation: nn.Module | None = None,
     ):
         super().__init__()
@@ -89,11 +165,18 @@ class CMLP(nn.Module):
                 raise ValueError(f"Unsupported activation: {activation}")
 
         # Input layer
-        if input_transform == True:
+        if input_transform == "GFF":
             layers.append(GaussianFourierFeatures(
                 input_dim=2, num_features=128, sigma=10.0
             ))
             layers.append(nn.Linear(256, hidden_units))
+
+        if input_transform == "FF":
+            layers.append(AnisotropicPositionalEncoding(M=8, N=5, sampling="linear"))        
+            # Dimensión de entrada del MLP
+            input_dim =  2 * (8 + 5)
+            layers.append(nn.Linear(input_dim, hidden_units))
+
         else:
             layers.append(nn.Linear(in_features, hidden_units))
 

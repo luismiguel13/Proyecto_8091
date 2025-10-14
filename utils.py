@@ -20,7 +20,7 @@ def train_val_split(dataset, val_ratio=0.2, seed=42):
     return train_subset, val_subset
 
 class EarlyStoppingTrainLoss:
-    def __init__(self, patience=200, min_delta=0.0, restore_best=True):
+    def __init__(self, patience, min_delta, restore_best):
         self.patience = patience
         self.min_delta = min_delta
         self.restore_best = restore_best

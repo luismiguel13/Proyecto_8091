@@ -161,6 +161,10 @@ class CMLP(nn.Module):
                 return SineActivation(w0=sine_w0)
             elif activation.lower() == 'relu':
                 return nn.ReLU()
+            elif activation.lower() == 'sigmoid':
+                return nn.Sigmoid()
+            elif activation.lower() == 'tanh':
+                return nn.Tanh()
             else:
                 raise ValueError(f"Unsupported activation: {activation}")
 
